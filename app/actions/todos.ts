@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { todos, todoTags, tags } from "@/db/schema";
 import { eq, desc, and, isNull, or, lte } from "drizzle-orm";
 import type { TodoWithTags } from "@/types";
+import { pushToTrmnl } from "@/lib/trmnl";
 
 export async function getTodos(): Promise<TodoWithTags[]> {
   const result = await db.query.todos.findMany({
@@ -109,6 +110,7 @@ export async function createTodo(data: {
 
   revalidatePath("/");
   revalidatePath("/tasks");
+  pushToTrmnl();
   return todo;
 }
 
@@ -150,6 +152,7 @@ export async function updateTodo(
   revalidatePath("/");
   revalidatePath("/tasks");
   revalidatePath(`/tasks/${id}`);
+  pushToTrmnl();
   return todo;
 }
 
@@ -174,6 +177,7 @@ export async function toggleTodo(id: string) {
 
   revalidatePath("/");
   revalidatePath("/tasks");
+  pushToTrmnl();
   return todo;
 }
 
@@ -181,4 +185,5 @@ export async function deleteTodo(id: string) {
   await db.delete(todos).where(eq(todos.id, id));
   revalidatePath("/");
   revalidatePath("/tasks");
+  pushToTrmnl();
 }

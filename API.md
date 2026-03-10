@@ -137,6 +137,63 @@ POST /api/tasks
 
 ---
 
+### Push to TRMNL Display
+
+Manually pushes today's tasks to a TRMNL e-ink display. This endpoint is useful for cron-based syncing or testing. Note that automatic pushes occur whenever tasks are created, updated, toggled, or deleted.
+
+```
+POST /api/trmnl/push
+```
+
+#### Requirements
+
+- `TRMNL_WEBHOOK_URL` environment variable must be configured
+
+#### Response
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "payload": {
+    "date": "2026-03-10",
+    "date_formatted": "Monday, March 10",
+    "todos": [
+      { "name": "Buy groceries", "completed": false, "overdue": false }
+    ],
+    "recurring": [
+      { "name": "Morning standup", "completed": true }
+    ],
+    "stats": {
+      "total": 2,
+      "completed": 1,
+      "pending": 1
+    }
+  }
+}
+```
+
+**500 Internal Server Error** (when TRMNL_WEBHOOK_URL is not configured)
+
+```json
+{
+  "error": "TRMNL_WEBHOOK_URL is not configured"
+}
+```
+
+**502 Bad Gateway** (when TRMNL API returns an error)
+
+```json
+{
+  "error": "Failed to push to TRMNL",
+  "status": 401,
+  "statusText": "Unauthorized"
+}
+```
+
+---
+
 ## Examples
 
 ### cURL
@@ -153,6 +210,12 @@ curl http://localhost:3000/api/tasks/today
 curl -X POST http://localhost:3000/api/tasks \
   -H "Content-Type: application/json" \
   -d '{"name": "Buy groceries", "dueDate": "2024-01-15"}'
+```
+
+**Push to TRMNL display:**
+
+```bash
+curl -X POST http://localhost:3000/api/trmnl/push
 ```
 
 ### JavaScript (fetch)

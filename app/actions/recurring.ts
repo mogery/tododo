@@ -10,6 +10,7 @@ import {
 } from "@/db/schema";
 import { eq, and, desc, asc } from "drizzle-orm";
 import type { RecurringTaskWithTags, TaskCompletion } from "@/types";
+import { pushToTrmnl } from "@/lib/trmnl";
 
 export async function getRecurringTasks(): Promise<RecurringTaskWithTags[]> {
   const result = await db
@@ -218,4 +219,5 @@ export async function toggleRecurringTaskCompletion(
   }
 
   revalidatePath("/");
+  pushToTrmnl();
 }
