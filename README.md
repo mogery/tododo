@@ -1,36 +1,121 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# tododo
 
-## Getting Started
+A self-hostable todo tracking application with recurring tasks, built with Next.js 16, PostgreSQL, and Drizzle ORM.
 
-First, run the development server:
+## Features
+
+- **One-time tasks** - Create tasks with optional due dates and descriptions
+- **Recurring tasks** - Set up daily, weekly, or monthly recurring tasks
+- **Tags** - Organize tasks with color-coded tags
+- **Mobile-first** - Responsive design with bottom navigation on mobile
+- **Self-hostable** - Deploy with Docker or run standalone
+
+## Quick Start with Docker
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Clone the repository
+git clone https://github.com/mogery/tododo.git
+cd tododo
+
+# Start the application
+docker compose up -d
+
+# Open http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Prerequisites
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Node.js 20+
+- pnpm
+- Docker (for PostgreSQL)
 
-## Learn More
+### Setup
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# Install dependencies
+pnpm install
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Start the database
+docker compose up -d db
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Push the database schema
+pnpm db:push
 
-## Deploy on Vercel
+# Start the development server
+pnpm dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Database Commands
+
+```bash
+pnpm db:generate  # Generate migrations from schema changes
+pnpm db:migrate   # Run migrations
+pnpm db:push      # Push schema directly (development)
+pnpm db:studio    # Open Drizzle Studio
+```
+
+## Deployment
+
+### Using the pre-built image
+
+Create a `compose.yml` file:
+
+```yaml
+services:
+  app:
+    image: ghcr.io/mogery/tododo:main
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    shm_size: 128mb
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
+```
+
+Then run:
+
+```bash
+docker compose up -d
+```
+
+### Building from source
+
+```bash
+docker compose up -d --build
+```
+
+## Tech Stack
+
+- **Framework**: Next.js 16 with React 19
+- **Database**: PostgreSQL with Drizzle ORM
+- **Styling**: Tailwind CSS 4 with ShadCN components
+- **Icons**: Phosphor Icons
+- **Deployment**: Docker with GitHub Actions CI/CD
+
+## License
+
+MIT
