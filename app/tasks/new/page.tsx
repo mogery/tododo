@@ -1,6 +1,8 @@
 import { TaskForm } from "@/components/todos/task-form";
 import { getTags } from "@/app/actions/tags";
 
+export const dynamic = "force-dynamic";
+
 export default async function NewTaskPage() {
   const tags = await getTags();
 

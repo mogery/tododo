@@ -1,6 +1,8 @@
 import { RecurringTaskForm } from "@/components/recurring/recurring-task-form";
 import { getTags } from "@/app/actions/tags";
 
+export const dynamic = "force-dynamic";
+
 export default async function NewRecurringTaskPage() {
   const tags = await getTags();
 
