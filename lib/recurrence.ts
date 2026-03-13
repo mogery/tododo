@@ -62,6 +62,28 @@ export function getTaskOccurrencesInRange(
 }
 
 /**
+ * Finds the most recent date (on or before given date) when a task was scheduled.
+ * Returns null if no occurrence found in the lookback period (30 days).
+ */
+export function getMostRecentOccurrence(
+  task: RecurringTask,
+  onOrBeforeDate: Date
+): Date | null {
+  const maxLookbackDays = 30;
+  const startDate = startOfDay(onOrBeforeDate);
+
+  for (let i = 0; i < maxLookbackDays; i++) {
+    const checkDate = new Date(startDate);
+    checkDate.setDate(checkDate.getDate() - i);
+    if (shouldTaskOccurOnDate(task, checkDate)) {
+      return checkDate;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Formats a date as ISO date string (YYYY-MM-DD)
  */
 export function formatDateISO(date: Date): string {

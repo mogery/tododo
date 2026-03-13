@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { todos, todoTags, tags } from "@/db/schema";
-import { eq, desc, and, isNull, or, lte } from "drizzle-orm";
+import { eq, desc, and, isNull, or, lte, gte } from "drizzle-orm";
 import type { TodoWithTags } from "@/types";
 import { pushToTrmnl } from "@/lib/trmnl";
 
@@ -35,15 +35,25 @@ export async function getTodos(): Promise<TodoWithTags[]> {
 }
 
 export async function getTodayTodos(): Promise<TodoWithTags[]> {
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
   const result = await db
     .select()
     .from(todos)
     .where(
-      and(
-        eq(todos.isCompleted, false),
-        or(isNull(todos.dueDate), lte(todos.dueDate, today))
+      or(
+        // Incomplete tasks due today or overdue
+        and(
+          eq(todos.isCompleted, false),
+          or(isNull(todos.dueDate), lte(todos.dueDate, todayStr))
+        ),
+        // Tasks completed today (stick around until next day)
+        and(
+          eq(todos.isCompleted, true),
+          gte(todos.completedAt, startOfToday)
+        )
       )
     )
     .orderBy(todos.dueDate, todos.createdAt);

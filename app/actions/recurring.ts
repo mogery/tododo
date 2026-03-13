@@ -8,7 +8,7 @@ import {
   taskCompletions,
   tags,
 } from "@/db/schema";
-import { eq, and, desc, asc } from "drizzle-orm";
+import { eq, and, desc, asc, gte, lte } from "drizzle-orm";
 import type { RecurringTaskWithTags, TaskCompletion } from "@/types";
 import { pushToTrmnl } from "@/lib/trmnl";
 
@@ -187,6 +187,21 @@ export async function getCompletionsForDate(
     .select()
     .from(taskCompletions)
     .where(eq(taskCompletions.completionDate, date));
+}
+
+export async function getCompletionsInDateRange(
+  startDate: string,
+  endDate: string
+): Promise<TaskCompletion[]> {
+  return db
+    .select()
+    .from(taskCompletions)
+    .where(
+      and(
+        gte(taskCompletions.completionDate, startDate),
+        lte(taskCompletions.completionDate, endDate)
+      )
+    );
 }
 
 export async function toggleRecurringTaskCompletion(

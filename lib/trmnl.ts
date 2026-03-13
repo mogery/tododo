@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { todos, todoTags, tags, recurringTasks, taskCompletions } from "@/db/schema";
-import { eq, and, isNull, or, lte } from "drizzle-orm";
-import { shouldTaskOccurOnDate, formatDateISO } from "@/lib/recurrence";
+import { eq, and, isNull, or, lte, gte } from "drizzle-orm";
+import { getMostRecentOccurrence, formatDateISO } from "@/lib/recurrence";
 import { format } from "date-fns";
 
 // Simple debounce state - 5 second cooldown between pushes
@@ -33,51 +33,99 @@ interface TrmnlPayload {
 export async function buildTrmnlPayload(): Promise<TrmnlPayload> {
   const today = new Date();
   const todayStr = formatDateISO(today);
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-  // Get one-time todos due today or overdue (incomplete only)
+  // Calculate lookback date (30 days ago)
+  const lookbackDate = new Date(today);
+  lookbackDate.setDate(lookbackDate.getDate() - 30);
+  const lookbackStr = formatDateISO(lookbackDate);
+
+  // Get one-time todos due today or overdue, OR completed today
   const todosResult = await db
     .select()
     .from(todos)
     .where(
-      and(
-        eq(todos.isCompleted, false),
-        or(isNull(todos.dueDate), lte(todos.dueDate, todayStr))
+      or(
+        // Incomplete tasks due today or overdue
+        and(
+          eq(todos.isCompleted, false),
+          or(isNull(todos.dueDate), lte(todos.dueDate, todayStr))
+        ),
+        // Tasks completed today (stick around until next day)
+        and(
+          eq(todos.isCompleted, true),
+          gte(todos.completedAt, startOfToday)
+        )
       )
     )
     .orderBy(todos.dueDate, todos.createdAt);
 
-  // Get active recurring tasks that occur today
+  // Get active recurring tasks
   const recurringResult = await db
     .select()
     .from(recurringTasks)
     .where(eq(recurringTasks.isActive, true));
 
-  const recurringTasksToday = recurringResult.filter((task) =>
-    shouldTaskOccurOnDate(task, today)
-  );
-
-  // Get completions for today
+  // Get completions for the lookback period
   const completionsResult = await db
     .select()
     .from(taskCompletions)
-    .where(eq(taskCompletions.completionDate, todayStr));
+    .where(
+      and(
+        gte(taskCompletions.completionDate, lookbackStr),
+        lte(taskCompletions.completionDate, todayStr)
+      )
+    );
 
-  const completedIds = new Set(completionsResult.map((c) => c.recurringTaskId));
+  // Group completions by task
+  const completionsByTask = new Map<string, typeof completionsResult>();
+  completionsResult.forEach((c) => {
+    const existing = completionsByTask.get(c.recurringTaskId) || [];
+    existing.push(c);
+    completionsByTask.set(c.recurringTaskId, existing);
+  });
+
+  // Build recurring tasks list with same logic as UI
+  const recurringTaskItems: TrmnlTask[] = [];
+  for (const task of recurringResult) {
+    const mostRecentOccurrence = getMostRecentOccurrence(task, today);
+    if (!mostRecentOccurrence) continue;
+
+    const occurrenceStr = formatDateISO(mostRecentOccurrence);
+    const taskCompletions = completionsByTask.get(task.id) || [];
+    const completion = taskCompletions.find((c) => c.completionDate === occurrenceStr);
+
+    if (completion) {
+      // Task was completed - only show if completed today
+      const completedAt = new Date(completion.completedAt);
+      if (completedAt >= startOfToday) {
+        recurringTaskItems.push({
+          name: task.name,
+          completed: true,
+          overdue: false,
+        });
+      }
+      // If completed before today, don't show
+    } else {
+      // Task not completed - show as pending (overdue if occurrence is before today)
+      recurringTaskItems.push({
+        name: task.name,
+        completed: false,
+        overdue: occurrenceStr < todayStr,
+      });
+    }
+  }
 
   // Combine all tasks into a single list
   const tasks: TrmnlTask[] = [
-    // One-time todos (incomplete only, so completed is always false)
+    // One-time todos
     ...todosResult.map((todo) => ({
       name: todo.name,
-      completed: false,
-      overdue: todo.dueDate !== null && todo.dueDate < todayStr,
+      completed: todo.isCompleted,
+      overdue: !todo.isCompleted && todo.dueDate !== null && todo.dueDate < todayStr,
     })),
-    // Recurring tasks for today
-    ...recurringTasksToday.map((task) => ({
-      name: task.name,
-      completed: completedIds.has(task.id),
-      overdue: false,
-    })),
+    // Recurring tasks
+    ...recurringTaskItems,
   ];
 
   // Calculate stats
